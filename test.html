@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transit Card Test</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      padding: 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
+    h1 {
+      color: rgba(255, 255, 255, 0.9);
+      font-weight: 400;
+      margin-bottom: 20px;
+    }
+
+    .card-container {
+      width: 100%;
+      max-width: 450px;
+    }
+
+    /* Mock HA card styles */
+    ha-card {
+      display: block;
+    }
+
+    .info {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 13px;
+      text-align: center;
+      max-width: 450px;
+    }
+
+    code {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'SF Mono', monospace;
+    }
+  </style>
+</head>
+<body>
+  <h1>Weststadt Transit Card</h1>
+
+  <div class="card-container">
+    <transit-card></transit-card>
+  </div>
+
+  <p class="info">
+    Copy <code>dist/transit-card.js</code> to your Home Assistant <code>www/</code> folder.<br>
+    Then add to resources and use <code>type: custom:transit-card</code> in your dashboard.
+  </p>
+
+  <script type="module">
+    import './dist/transit-card.js';
+
+    // Configure the card
+    const card = document.querySelector('transit-card');
+    card.setConfig({
+      type: 'custom:transit-card',
+      title: 'Abfahrten Weststadt',
+      stops: {
+        sbahn: '8002681',
+        tram: ['506913', '506953'],
+        bus: ['518175'],
+      },
+      refresh_interval: 30,
+      max_departures: 5,
+    });
+  </script>
+</body>
+</html>
