@@ -7,7 +7,7 @@ const DEPARTURE_DURATION = 60;
 const DEFAULT_STOPS = {
   sbahn: ['8002681'],           // Weststadt/Südstadt
   tram: ['506913', '506953'],   // Christuskirche, Römerkreis Süd
-  bus: ['518175'],              // Kaiserstraße
+  bus: ['518175', '506901'],    // Kaiserstraße, Alois-Link-Platz
 };
 
 // CORS proxy options
