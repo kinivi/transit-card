@@ -116,7 +116,10 @@ export class TransitCard extends LitElement {
     this._error = null;
 
     try {
-      const departures = await fetchAllDepartures(this._config?.stops);
+      const departures = await fetchAllDepartures({
+        ...this._config?.stops,
+        proxy_url: this._config?.proxy_url,
+      });
       this._departures = departures;
       this._lastUpdated = new Date();
       this._status = 'live';
@@ -246,7 +249,7 @@ window.customCards.push({
   name: 'Transit Card',
   description: 'Real-time transit departures with glass-blur aesthetic',
   preview: true,
-  documentationURL: 'https://github.com/your-repo/transit-card',
+  documentationURL: 'https://github.com/kinivi/transit-card',
 });
 
 declare global {

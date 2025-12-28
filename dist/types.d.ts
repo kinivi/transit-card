@@ -18,11 +18,13 @@ export interface TransitCardConfig {
     max_departures?: number;
     collapsed?: TransitType[];
     style?: 'glass' | 'solid';
+    proxy_url?: string;
 }
 export interface StopConfig {
     sbahn?: string | string[];
     tram?: string | string[];
     bus?: string | string[];
+    proxy_url?: string;
 }
 export type TransitType = 'sbahn' | 'tram' | 'bus';
 export interface Departure {
