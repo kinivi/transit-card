@@ -98,10 +98,20 @@ async function fetchDepartures(
     }
 
     const data: ApiResponse = await response.json();
+    const now = new Date();
 
     return (data.departures || [])
       .map((dep) => parseDeparture(dep, stopId, type))
-      .filter((dep) => !dep.cancelled)
+      .filter((dep) => {
+        // Filter out cancelled
+        if (dep.cancelled) return false;
+
+        // Filter out past departures (actual time or planned time has passed)
+        const departureTime = dep.actualTime || dep.plannedTime;
+        if (departureTime.getTime() < now.getTime() - 60000) return false; // 1 min grace
+
+        return true;
+      })
       .sort((a, b) => a.plannedTime.getTime() - b.plannedTime.getTime());
   } catch (error) {
     console.error(`[transit-card] Failed to fetch ${type} departures for ${stopId}:`, error);
