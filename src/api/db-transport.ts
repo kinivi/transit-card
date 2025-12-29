@@ -111,6 +111,9 @@ async function fetchDepartures(
         const departureTime = dep.actualTime || dep.plannedTime;
         if (departureTime.getTime() < now.getTime() - 60000) return false; // 1 min grace
 
+        // Filter out extremely delayed departures (> 60 min) - likely stale/broken data
+        if (dep.delay > 60) return false;
+
         return true;
       })
       .sort((a, b) => a.plannedTime.getTime() - b.plannedTime.getTime());
