@@ -1,18 +1,19 @@
 # Transit Card
 
-A modern glass-style Lovelace card for Home Assistant displaying real-time S-Bahn, Tram, and Bus departures.
+A modern glass-style Lovelace card for Home Assistant displaying real-time S-Bahn, Tram, and Bus departures from the Deutsche Bahn API.
 
-![Transit Card Preview](https://via.placeholder.com/400x300?text=Transit+Card+Preview)
+![Transit Card Screenshot](screenshots/transit-card.png)
 
 ## Features
 
 - Real-time departures from Deutsche Bahn API
 - Glass/blur aesthetic with dark theme
 - Collapsible sections for S-Bahn / Tram / Bus
-- Live countdown updates
-- Delay indicators
-- Platform display
+- Live countdown updates (refreshes every second)
+- Delay indicators (+3, +5 in orange/red)
+- Platform display (Gl. 2)
 - Configurable stops and refresh interval
+- Works with any German transit stop
 
 ## Installation
 
@@ -36,32 +37,59 @@ A modern glass-style Lovelace card for Home Assistant displaying real-time S-Bah
 
 ```yaml
 type: custom:transit-card
-title: Abfahrten              # Optional header
+title: Abfahrten
 stops:
-  sbahn: "8002681"            # Weststadt/Südstadt
+  sbahn: "8002681"
   tram:
-    - "506913"                # Christuskirche
-    - "506953"                # Römerkreis Süd
+    - "506913"
+    - "506953"
   bus:
-    - "518175"                # Kaiserstraße
-refresh_interval: 30          # Seconds (default: 30)
-max_departures: 5             # Per section (default: 5)
-collapsed:                    # Sections to start collapsed
+    - "518175"
+    - "506901"
+refresh_interval: 30
+max_departures: 5
+collapsed:
   - bus
-style: glass                  # 'glass' or 'solid'
+style: glass
 ```
 
-## Finding Stop IDs
+### Options
 
-Use the Deutsche Bahn API to find stop IDs:
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `title` | string | - | Optional card header |
+| `stops.sbahn` | string/array | - | S-Bahn stop ID(s) |
+| `stops.tram` | string/array | - | Tram stop ID(s) |
+| `stops.bus` | string/array | - | Bus stop ID(s) |
+| `refresh_interval` | number | 30 | Refresh interval in seconds |
+| `max_departures` | number | 5 | Max departures per section |
+| `collapsed` | array | [] | Sections to start collapsed (`sbahn`, `tram`, `bus`) |
+| `style` | string | `glass` | `glass` (blur effect) or `solid` |
+| `proxy_url` | string | - | Custom CORS proxy URL (optional) |
 
+## Finding Your Stop IDs
+
+**Important:** Replace the default stops with your own local stops!
+
+### Method 1: DB API (Recommended)
+
+Search for your stop:
 ```
-https://v6.db.transport.rest/locations?query=Heidelberg
+https://v6.db.transport.rest/locations?query=Berlin+Hauptbahnhof
 ```
 
-Or search on [bahn.expert](https://bahn.expert/) and look at the URL.
+The `id` field in the response is your stop ID.
 
-## Common Stops (Heidelberg)
+### Method 2: bahn.expert
+
+1. Go to [bahn.expert](https://bahn.expert/)
+2. Search for your station
+3. The stop ID is in the URL
+
+### Method 3: Common Stop IDs
+
+<details>
+<summary><b>Heidelberg</b></summary>
 
 | Stop | ID | Type |
 |------|-----|------|
@@ -70,6 +98,50 @@ Or search on [bahn.expert](https://bahn.expert/) and look at the URL.
 | Bismarckplatz | 506903 | Tram |
 | Christuskirche | 506913 | Tram |
 | Römerkreis Süd | 506953 | Tram |
+| Kaiserstraße | 518175 | Bus |
+| Alois-Link-Platz | 506901 | Bus |
+
+</details>
+
+<details>
+<summary><b>Berlin</b></summary>
+
+| Stop | ID | Type |
+|------|-----|------|
+| Berlin Hbf | 8011160 | S-Bahn/Regional |
+| Alexanderplatz | 900100003 | S-Bahn/U-Bahn |
+| Potsdamer Platz | 900100020 | S-Bahn |
+| Friedrichstraße | 900100001 | S-Bahn |
+
+</details>
+
+<details>
+<summary><b>München</b></summary>
+
+| Stop | ID | Type |
+|------|-----|------|
+| München Hbf | 8000261 | S-Bahn/Regional |
+| Marienplatz | 625031 | S-Bahn/U-Bahn |
+| Karlsplatz (Stachus) | 625026 | S-Bahn |
+
+</details>
+
+## Troubleshooting
+
+### "Keine Abfahrten gefunden" (No departures)
+
+1. **Check the browser console** (F12) for errors
+2. **CORS issues**: The card uses fallback proxies automatically. If still failing, try:
+   ```yaml
+   proxy_url: "https://corsproxy.io/?"
+   ```
+3. **API rate limiting**: The DB API sometimes returns 503 errors. Wait a few minutes.
+
+### Card not showing
+
+1. Clear browser cache (Ctrl+Shift+R)
+2. Check that the resource is loaded in **Settings → Dashboards → Resources**
+3. Restart Home Assistant
 
 ## License
 
@@ -77,4 +149,5 @@ MIT
 
 ## Credits
 
-Transit data provided by [v6.db.transport.rest](https://v6.db.transport.rest/) (CC BY 4.0)
+- Transit data: [v6.db.transport.rest](https://v6.db.transport.rest/) (CC BY 4.0)
+- Inspired by real German transit departure boards
