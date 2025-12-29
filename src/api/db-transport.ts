@@ -80,6 +80,7 @@ async function fetchDepartures(
 ): Promise<Departure[]> {
   try {
     const url = new URL(`${DB_API_BASE}/stops/${stopId}/departures`);
+    url.searchParams.set('when', new Date().toISOString());
     url.searchParams.set('duration', String(DEPARTURE_DURATION));
 
     // Filter by transit type
