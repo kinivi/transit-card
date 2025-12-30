@@ -232,9 +232,9 @@ export class TransitCard extends LitElement {
       type: 'custom:transit-card',
       title: 'Abfahrten',
       stops: {
-        sbahn: '8002681',
-        tram: ['506913', '506953'],
-        bus: ['518175'],
+        sbahn: '',
+        tram: '',
+        bus: '',
       },
       refresh_interval: 30,
       max_departures: 5,

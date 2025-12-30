@@ -53,14 +53,23 @@ collapsed:
 style: glass
 ```
 
+**Only configure the transit types you need.** Omit a section to hide it:
+
+```yaml
+# S-Bahn only
+type: custom:transit-card
+stops:
+  sbahn: "8011160"
+```
+
 ### Options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `title` | string | - | Optional card header |
-| `stops.sbahn` | string/array | - | S-Bahn stop ID(s) |
-| `stops.tram` | string/array | - | Tram stop ID(s) |
-| `stops.bus` | string/array | - | Bus stop ID(s) |
+| `stops.sbahn` | string/array | - | S-Bahn stop ID(s). Omit to hide section. |
+| `stops.tram` | string/array | - | Tram stop ID(s). Omit to hide section. |
+| `stops.bus` | string/array | - | Bus stop ID(s). Omit to hide section. |
 | `refresh_interval` | number | 30 | Refresh interval in seconds |
 | `max_departures` | number | 5 | Max departures per section |
 | `collapsed` | array | [] | Sections to start collapsed (`sbahn`, `tram`, `bus`) |
@@ -69,7 +78,7 @@ style: glass
 
 ## Finding Your Stop IDs
 
-**Important:** Replace the default stops with your own local stops!
+You must configure your own stop IDs. Here's how to find them:
 
 ### Method 1: DB API (Recommended)
 

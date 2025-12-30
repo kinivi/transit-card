@@ -3,12 +3,6 @@ import type { ApiDeparture, ApiResponse, Departure, TransitType, GroupedDepartur
 const DB_API_BASE = 'https://v6.db.transport.rest';
 const DEPARTURE_DURATION = 60;
 
-// Default stops for Weststadt
-const DEFAULT_STOPS = {
-  sbahn: ['8002681'],           // Weststadt/Südstadt
-  tram: ['506913', '506953'],   // Christuskirche, Römerkreis Süd
-  bus: ['518175', '506901'],    // Kaiserstraße, Alois-Link-Platz
-};
 
 // CORS proxy options
 const CORS_PROXIES = [
@@ -128,11 +122,6 @@ function normalizeStops(stops: string | string[] | undefined): string[] {
   return Array.isArray(stops) ? stops : [stops];
 }
 
-function getStopsOrDefault(stops: string | string[] | undefined, defaults: string[]): string[] {
-  const normalized = normalizeStops(stops);
-  return normalized.length > 0 ? normalized : defaults;
-}
-
 export async function fetchAllDepartures(
   config?: {
     sbahn?: string | string[];
@@ -142,9 +131,9 @@ export async function fetchAllDepartures(
   }
 ): Promise<GroupedDepartures> {
   const stops = {
-    sbahn: getStopsOrDefault(config?.sbahn, DEFAULT_STOPS.sbahn),
-    tram: getStopsOrDefault(config?.tram, DEFAULT_STOPS.tram),
-    bus: getStopsOrDefault(config?.bus, DEFAULT_STOPS.bus),
+    sbahn: normalizeStops(config?.sbahn),
+    tram: normalizeStops(config?.tram),
+    bus: normalizeStops(config?.bus),
   };
 
   console.log('[transit-card] Fetching departures for stops:', stops);
