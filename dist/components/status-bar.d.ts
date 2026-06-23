@@ -4,6 +4,7 @@ export declare class StatusBar extends LitElement {
     static styles: import("lit").CSSResult;
     status: ConnectionStatus;
     lastUpdated: Date | null;
+    stale: boolean;
     private _getStatusText;
     render(): import("lit-html").TemplateResult<1>;
 }

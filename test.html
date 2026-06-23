@@ -19,18 +19,37 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 20px;
+      gap: 30px;
     }
 
     h1 {
       color: rgba(255, 255, 255, 0.9);
       font-weight: 400;
-      margin-bottom: 20px;
+      margin-bottom: 10px;
+    }
+
+    h2 {
+      color: rgba(255, 255, 255, 0.7);
+      font-weight: 400;
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+
+    .section {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
     }
 
     .card-container {
       width: 100%;
       max-width: 450px;
+    }
+
+    .card-container.wide {
+      max-width: 900px;
     }
 
     /* Mock HA card styles */
@@ -42,7 +61,7 @@
       color: rgba(255, 255, 255, 0.6);
       font-size: 13px;
       text-align: center;
-      max-width: 450px;
+      max-width: 600px;
     }
 
     code {
@@ -51,13 +70,72 @@
       border-radius: 4px;
       font-family: 'SF Mono', monospace;
     }
+
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .tab {
+      padding: 8px 16px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      color: rgba(255, 255, 255, 0.7);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .tab.active {
+      background: rgba(255, 255, 255, 0.15);
+      color: rgba(255, 255, 255, 0.95);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .demo {
+      display: none;
+    }
+
+    .demo.active {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+    }
   </style>
 </head>
 <body>
-  <h1>Weststadt Transit Card</h1>
+  <h1>Transit Card Demo</h1>
 
-  <div class="card-container">
-    <transit-card></transit-card>
+  <div class="tabs">
+    <button class="tab active" data-tab="list">List Layout</button>
+    <button class="tab" data-tab="map">Map Layout (2-Column)</button>
+  </div>
+
+  <!-- List Layout Demo -->
+  <div class="demo active" id="list-demo">
+    <div class="section">
+      <h2>Compact List View</h2>
+      <div class="card-container">
+        <transit-card id="list-card"></transit-card>
+      </div>
+    </div>
+  </div>
+
+  <!-- Map Layout Demo -->
+  <div class="demo" id="map-demo">
+    <div class="section">
+      <h2>2-Column Map View</h2>
+      <div class="card-container wide">
+        <transit-card id="map-card"></transit-card>
+      </div>
+    </div>
   </div>
 
   <p class="info">
@@ -68,18 +146,85 @@
   <script type="module">
     import './dist/transit-card.js';
 
-    // Configure the card
-    const card = document.querySelector('transit-card');
-    card.setConfig({
+    // --- Mock Home Assistant `hass` object (no live API) ---
+    // Departure times are relative to "now" so countdowns are realistic; the mock is
+    // regenerated each minute (like a 1/min HA REST sensor) so the board stays fresh.
+    const iso = (minFromNow) => new Date(Date.now() + minFromNow * 60000).toISOString();
+
+    function makeHass() {
+      const now = new Date().toISOString();
+      const entity = (deps) => ({
+        entity_id: '',
+        state: String(deps.length),
+        attributes: { departures: deps },
+        last_changed: now,
+        last_updated: now,
+      });
+      return {
+        language: 'de',
+        callService: async () => {},
+        states: {
+          'sensor.transit_s_bahn_all': entity([
+            { line: 'S3', direction: 'Mannheim Hbf', planned: iso(3), when: iso(4), delay: 1, platform: '1', cancelled: false, stopName: 'Weststadt/Südstadt', lat: 49.398324, lng: 8.688749 },
+            { line: 'S1', direction: 'Osterburken', planned: iso(8), when: iso(8), delay: 0, platform: '2', cancelled: false, stopName: 'Weststadt/Südstadt', lat: 49.398324, lng: 8.688749 },
+            { line: 'S2', direction: 'Mosbach(Baden)', planned: iso(-5), when: iso(-5), delay: 0, platform: '2', cancelled: false }, // past → filtered out
+            { line: 'S4', direction: 'Bruchsal', planned: iso(12), when: null, delay: 0, platform: '1', cancelled: true }, // cancelled → filtered out
+          ]),
+          'sensor.transit_tram_all': entity([
+            { line: 'STR 23', direction: 'Bismarckplatz', planned: iso(2), when: iso(3), delay: 1, platform: null, cancelled: false, directionArrow: 'left', stopName: 'Christuskirche', lat: 49.40168, lng: 8.685209 },
+            { line: 'STR 5', direction: 'Weststadt', planned: iso(9), when: iso(9), delay: 0, platform: null, cancelled: false, directionArrow: 'right', stopName: 'Stadtwerke', lat: 49.40497, lng: 8.681704 },
+          ]),
+          'sensor.transit_bus_all': entity([
+            { line: 'Bus ML1', direction: 'Emmertsgrund', planned: iso(5), when: iso(11), delay: 6, platform: null, cancelled: false, stopName: 'Kaiserstraße', lat: 49.402253, lng: 8.691587 },
+            { line: 'Bus 28', direction: 'Hauptbahnhof', planned: iso(14), when: null, delay: 0, platform: null, cancelled: false, stopName: 'Kaiserstraße', lat: 49.402253, lng: 8.691587 },
+          ]),
+        },
+      };
+    }
+
+    const stops = {
+      sbahn: 'sensor.transit_s_bahn_all',
+      tram: { entity: 'sensor.transit_tram_all' },
+      bus: 'sensor.transit_bus_all',
+    };
+
+    const listCard = document.querySelector('#list-card');
+    listCard.setConfig({
       type: 'custom:transit-card',
       title: 'Abfahrten Weststadt',
-      stops: {
-        sbahn: '8002681',
-        tram: ['506913', '506953'],
-        bus: ['518175'],
-      },
-      refresh_interval: 30,
+      layout: 'list',
+      stops,
       max_departures: 5,
+    });
+
+    const mapCard = document.querySelector('#map-card');
+    mapCard.setConfig({
+      type: 'custom:transit-card',
+      title: 'Weststadt Transit',
+      layout: 'map',
+      stops,
+      map: { center: { lat: 49.4015, lng: 8.686 }, zoom: 15 },
+      max_departures: 4,
+    });
+
+    // Push hass now, and refresh each minute like the server-side poll would.
+    const pushHass = () => {
+      const hass = makeHass();
+      listCard.hass = hass;
+      mapCard.hass = hass;
+    };
+    pushHass();
+    setInterval(pushHass, 60000);
+
+    // Tab switching
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.demo').forEach(d => d.classList.remove('active'));
+
+        tab.classList.add('active');
+        document.getElementById(`${tab.dataset.tab}-demo`).classList.add('active');
+      });
     });
   </script>
 </body>

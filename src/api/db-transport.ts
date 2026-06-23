@@ -1,165 +1,90 @@
-import type { ApiDeparture, ApiResponse, Departure, TransitType, GroupedDepartures } from '../types';
+// Pure parser for departures sourced from Home Assistant entity attributes.
+//
+// NOTE: despite the file name, this module no longer talks to Deutsche Bahn or any
+// network at all. The single rate-limited poll now lives on the HA side (a REST sensor
+// hitting a self-hosted db-vendo-client). The card only reads `attributes.departures`
+// off the source entity and normalizes it into the internal `Departure` shape.
 
-const DB_API_BASE = 'https://v6.db.transport.rest';
-const DEPARTURE_DURATION = 60;
+import type { HassEntity, Departure, DeparturePayload, TransitType } from '../types';
 
+const PAST_GRACE_MS = 60_000; // 1 minute
+const MAX_DELAY_MINUTES = 60; // hide implausible delays
 
-// CORS proxy options
-const CORS_PROXIES = [
-  '', // Try direct first
-  'https://corsproxy.io/?',
-  'https://api.allorigins.win/raw?url=',
-];
+function toDateOrNull(iso: unknown): Date | null {
+  if (typeof iso !== 'string' || !iso) return null;
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? null : d;
+}
 
-let workingProxyIndex = 0;
+function coerceDeparture(
+  raw: DeparturePayload,
+  type: TransitType,
+  index: number
+): Departure | null {
+  const plannedTime = toDateOrNull(raw.planned);
+  const actualTime = toDateOrNull(raw.when);
 
-function parseDeparture(
-  apiDep: ApiDeparture,
-  stopId: string,
-  type: TransitType
-): Departure {
-  const plannedTime = new Date(apiDep.plannedWhen);
-  const actualTime = apiDep.when ? new Date(apiDep.when) : null;
-  const delayMinutes = apiDep.delay ? Math.round(apiDep.delay / 60) : 0;
+  // `planned` drives all time math; fall back to realtime `when`, else drop the entry.
+  const effectivePlanned = plannedTime ?? actualTime;
+  if (!effectivePlanned) return null;
+
+  const delay = typeof raw.delay === 'number' && isFinite(raw.delay) ? Math.round(raw.delay) : 0;
+  const arrow =
+    raw.directionArrow === 'left' || raw.directionArrow === 'right' ? raw.directionArrow : null;
 
   return {
-    id: apiDep.tripId,
-    line: apiDep.line?.name || '?',
-    direction: apiDep.direction || 'Unbekannt',
-    plannedTime,
+    id:
+      typeof raw.id === 'string' && raw.id
+        ? raw.id
+        : `${type}-${index}-${typeof raw.line === 'string' ? raw.line : '?'}`,
+    line: typeof raw.line === 'string' && raw.line ? raw.line : '?',
+    direction: typeof raw.direction === 'string' && raw.direction ? raw.direction : 'Unbekannt',
+    plannedTime: effectivePlanned,
     actualTime,
-    delay: delayMinutes,
-    platform: apiDep.platform,
-    cancelled: apiDep.cancelled || false,
-    stopName: apiDep.stop?.name || '',
-    stopId,
+    delay,
+    platform: typeof raw.platform === 'string' ? raw.platform : null,
+    cancelled: raw.cancelled === true,
+    stopName: typeof raw.stopName === 'string' ? raw.stopName : '',
     type,
+    directionArrow: arrow,
+    lat: typeof raw.lat === 'number' ? raw.lat : undefined,
+    lng: typeof raw.lng === 'number' ? raw.lng : undefined,
   };
 }
 
-async function fetchWithProxy(url: string, proxyUrl?: string): Promise<Response> {
-  // If custom proxy provided, use it
-  if (proxyUrl) {
-    const proxiedUrl = proxyUrl + encodeURIComponent(url);
-    return fetch(proxiedUrl);
-  }
+// Parse `attributes.departures` off a source entity into internal Departures.
+// Unknown fields are ignored; malformed entries are skipped rather than throwing.
+export function parseDeparturesFromState(
+  entity: HassEntity | undefined,
+  type: TransitType
+): Departure[] {
+  if (!entity) return [];
+  const raw = (entity.attributes as Record<string, unknown> | undefined)?.departures;
+  if (!Array.isArray(raw)) return [];
 
-  // Try proxies in order, starting from last working one
-  for (let i = 0; i < CORS_PROXIES.length; i++) {
-    const proxyIndex = (workingProxyIndex + i) % CORS_PROXIES.length;
-    const proxy = CORS_PROXIES[proxyIndex];
-
-    try {
-      const fetchUrl = proxy ? proxy + encodeURIComponent(url) : url;
-      const response = await fetch(fetchUrl, {
-        signal: AbortSignal.timeout(10000), // 10s timeout
-      });
-
-      if (response.ok) {
-        workingProxyIndex = proxyIndex; // Remember working proxy
-        return response;
-      }
-    } catch (e) {
-      console.log(`[transit-card] Proxy ${proxyIndex} failed, trying next...`);
+  const out: Departure[] = [];
+  raw.forEach((item, i) => {
+    if (item && typeof item === 'object') {
+      const dep = coerceDeparture(item as DeparturePayload, type, i);
+      if (dep) out.push(dep);
     }
-  }
-
-  throw new Error('All proxies failed');
-}
-
-async function fetchDepartures(
-  stopId: string,
-  type: TransitType,
-  proxyUrl?: string
-): Promise<Departure[]> {
-  try {
-    const url = new URL(`${DB_API_BASE}/stops/${stopId}/departures`);
-    url.searchParams.set('when', new Date().toISOString());
-    url.searchParams.set('duration', String(DEPARTURE_DURATION));
-
-    // Filter by transit type
-    url.searchParams.set('suburban', type === 'sbahn' ? 'true' : 'false');
-    url.searchParams.set('tram', type === 'tram' ? 'true' : 'false');
-    url.searchParams.set('bus', type === 'bus' ? 'true' : 'false');
-    url.searchParams.set('regional', 'false');
-    url.searchParams.set('express', 'false');
-    url.searchParams.set('ferry', 'false');
-
-    const response = await fetchWithProxy(url.toString(), proxyUrl);
-
-    if (!response.ok) {
-      console.error(`[transit-card] API error for ${stopId}: ${response.status}`);
-      return [];
-    }
-
-    const data: ApiResponse = await response.json();
-    const now = new Date();
-
-    return (data.departures || [])
-      .map((dep) => parseDeparture(dep, stopId, type))
-      .filter((dep) => {
-        // Filter out cancelled
-        if (dep.cancelled) return false;
-
-        // Filter out past departures (actual time or planned time has passed)
-        const departureTime = dep.actualTime || dep.plannedTime;
-        if (departureTime.getTime() < now.getTime() - 60000) return false; // 1 min grace
-
-        // Filter out extremely delayed departures (> 60 min) - likely stale/broken data
-        if (dep.delay > 60) return false;
-
-        return true;
-      })
-      .sort((a, b) => a.plannedTime.getTime() - b.plannedTime.getTime());
-  } catch (error) {
-    console.error(`[transit-card] Failed to fetch ${type} departures for ${stopId}:`, error);
-    return [];
-  }
-}
-
-function normalizeStops(stops: string | string[] | undefined): string[] {
-  if (!stops) return [];
-  return Array.isArray(stops) ? stops : [stops];
-}
-
-export async function fetchAllDepartures(
-  config?: {
-    sbahn?: string | string[];
-    tram?: string | string[];
-    bus?: string | string[];
-    proxy_url?: string;
-  }
-): Promise<GroupedDepartures> {
-  const stops = {
-    sbahn: normalizeStops(config?.sbahn),
-    tram: normalizeStops(config?.tram),
-    bus: normalizeStops(config?.bus),
-  };
-
-  console.log('[transit-card] Fetching departures for stops:', stops);
-
-  // Fetch all in parallel
-  const [sbahnResults, tramResults, busResults] = await Promise.all([
-    Promise.all(stops.sbahn.map((id) => fetchDepartures(id, 'sbahn', config?.proxy_url))),
-    Promise.all(stops.tram.map((id) => fetchDepartures(id, 'tram', config?.proxy_url))),
-    Promise.all(stops.bus.map((id) => fetchDepartures(id, 'bus', config?.proxy_url))),
-  ]);
-
-  // Flatten and sort by time
-  const sortByTime = (deps: Departure[]) =>
-    deps.sort((a, b) => a.plannedTime.getTime() - b.plannedTime.getTime());
-
-  const result = {
-    sbahn: sortByTime(sbahnResults.flat()),
-    tram: sortByTime(tramResults.flat()),
-    bus: sortByTime(busResults.flat()),
-  };
-
-  console.log('[transit-card] Fetched departures:', {
-    sbahn: result.sbahn.length,
-    tram: result.tram.length,
-    bus: result.bus.length,
   });
+  return out;
+}
 
-  return result;
+// Re-applied at render time (the source entity updates ~1/min, the clock ticks every
+// second): hide cancelled, hide past (effective time + 1 min grace), hide implausible
+// delays, and sort by effective departure time.
+export function filterAndSortDepartures(deps: Departure[], now: Date): Departure[] {
+  const nowMs = now.getTime();
+  const effective = (d: Departure) => (d.actualTime ?? d.plannedTime).getTime();
+
+  return deps
+    .filter((dep) => {
+      if (dep.cancelled) return false;
+      if (effective(dep) < nowMs - PAST_GRACE_MS) return false;
+      if (dep.delay > MAX_DELAY_MINUTES) return false;
+      return true;
+    })
+    .sort((a, b) => effective(a) - effective(b));
 }

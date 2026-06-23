@@ -10,23 +10,59 @@ export interface HassEntity {
     last_changed: string;
     last_updated: string;
 }
+export type TransitType = 'sbahn' | 'tram' | 'bus';
+export declare const TRANSIT_TYPES: TransitType[];
+export type EntitySource = string | {
+    entity: string;
+};
+export declare function resolveEntityId(source: EntitySource | undefined | null): string | undefined;
+export interface StopLocation {
+    id: string;
+    name: string;
+    latitude: number;
+    longitude: number;
+}
+export interface MapConfig {
+    zoom?: number;
+    center?: {
+        lat: number;
+        lng: number;
+    };
+    stops?: Record<string, {
+        lat: number;
+        lng: number;
+    }>;
+}
+export interface StopConfig {
+    sbahn?: EntitySource;
+    tram?: EntitySource;
+    bus?: EntitySource;
+}
 export interface TransitCardConfig {
     type: string;
     title?: string;
+    layout?: 'list' | 'map';
     stops?: StopConfig;
-    refresh_interval?: number;
+    map?: MapConfig;
     max_departures?: number;
     collapsed?: TransitType[];
     style?: 'glass' | 'solid';
-    proxy_url?: string;
+    stale_threshold?: number;
 }
-export interface StopConfig {
-    sbahn?: string | string[];
-    tram?: string | string[];
-    bus?: string | string[];
-    proxy_url?: string;
+export interface DeparturePayload {
+    line: string;
+    direction: string;
+    planned: string;
+    when?: string | null;
+    delay?: number;
+    platform?: string | null;
+    cancelled?: boolean;
+    id?: string;
+    directionArrow?: 'left' | 'right' | null;
+    stopName?: string;
+    lat?: number;
+    lng?: number;
 }
-export type TransitType = 'sbahn' | 'tram' | 'bus';
 export interface Departure {
     id: string;
     line: string;
@@ -37,32 +73,10 @@ export interface Departure {
     platform: string | null;
     cancelled: boolean;
     stopName: string;
-    stopId: string;
     type: TransitType;
-}
-export interface ApiDeparture {
-    tripId: string;
-    line: {
-        name: string;
-        fahrtNr?: string;
-        type?: string;
-        product?: {
-            type?: string;
-        };
-    };
-    direction: string;
-    plannedWhen: string;
-    when: string | null;
-    delay: number | null;
-    platform: string | null;
-    cancelled?: boolean;
-    stop?: {
-        id: string;
-        name: string;
-    };
-}
-export interface ApiResponse {
-    departures: ApiDeparture[];
+    directionArrow?: 'left' | 'right' | null;
+    lat?: number;
+    lng?: number;
 }
 export interface GroupedDepartures {
     sbahn: Departure[];

@@ -1,8 +1,4 @@
-import type { GroupedDepartures } from '../types';
-export declare function fetchAllDepartures(config?: {
-    sbahn?: string | string[];
-    tram?: string | string[];
-    bus?: string | string[];
-    proxy_url?: string;
-}): Promise<GroupedDepartures>;
+import type { HassEntity, Departure, TransitType } from '../types';
+export declare function parseDeparturesFromState(entity: HassEntity | undefined, type: TransitType): Departure[];
+export declare function filterAndSortDepartures(deps: Departure[], now: Date): Departure[];
 //# sourceMappingURL=db-transport.d.ts.map

@@ -1,4 +1,4 @@
-import { LitElement, html, nothing } from 'lit';
+import { LitElement, html, nothing, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import type { Departure } from '../types';
 import { formatTime, minutesUntil, formatMinutesUntil, formatDelay, formatPlatform } from '../utils/time';
@@ -6,7 +6,31 @@ import { cardStyles } from '../styles/card-styles';
 
 @customElement('departure-row')
 export class DepartureRow extends LitElement {
-  static styles = cardStyles;
+  static styles = [
+    cardStyles,
+    css`
+      .direction-wrapper {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-xs, 4px);
+        overflow: hidden;
+      }
+
+      .direction-arrow {
+        font-weight: bold;
+        font-size: 14px;
+        flex-shrink: 0;
+      }
+
+      .direction-arrow.left {
+        color: var(--tram-color, #42a5f5);
+      }
+
+      .direction-arrow.right {
+        color: var(--bus-color, #ab47bc);
+      }
+    `,
+  ];
 
   @property({ attribute: false })
   departure!: Departure;
@@ -24,7 +48,12 @@ export class DepartureRow extends LitElement {
       <div class="departure-row ${dep.cancelled ? 'cancelled' : ''}">
         <div class="line-badge ${dep.type}">${dep.line}</div>
 
-        <div class="direction">${dep.direction}</div>
+        <div class="direction-wrapper">
+          ${dep.directionArrow
+            ? html`<span class="direction-arrow ${dep.directionArrow}">${dep.directionArrow === 'left' ? '←' : '→'}</span>`
+            : nothing}
+          <div class="direction">${dep.direction}</div>
+        </div>
 
         <div class="time-info">
           ${dep.delay > 0
